@@ -45,7 +45,7 @@ if [ "$1" = 'redis-cluster' ]; then
       fi
 
       if [ -e /redis-data/${port}/appendonly.aof ]; then
-        rm /redis-data/${port}/appendonly.aof
+        mv /redis-data/${port}/appendonly.aof /redis-data/${port}/appendonly.aof.bak
       fi
 
       if [ "$port" -lt "$first_standalone" ]; then
@@ -85,6 +85,13 @@ if [ "$1" = 'redis-cluster' ]; then
         redis-sentinel /redis-conf/sentinel-${port}.conf &
       done
     fi
+
+    for port in $(seq $INITIAL_PORT $max_port); do
+      if [ -e /redis-data/${port}/appendonly.aof.bak ]; then
+        mv /redis-data/${port}/appendonly.aof.bak /redis-data/${port}/appendonly.aof
+        /redis/src/redis-cli -p "${port}" shutdown
+      fi
+    done
 
     tail -f /var/log/supervisor/redis*.log
 else
