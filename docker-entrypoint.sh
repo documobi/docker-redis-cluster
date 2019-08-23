@@ -44,8 +44,10 @@ if [ "$1" = 'redis-cluster' ]; then
         rm /redis-data/${port}/dump.rdb
       fi
 
-      if [ -e /redis-data/${port}/appendonly.aof ]; then
-        mv /redis-data/${port}/appendonly.aof /redis-data/${port}/appendonly.aof.bak
+      if [ "$port" -lt "$first_standalone" ]; then
+        if [ -e /redis-data/${port}/appendonly.aof ]; then
+          mv /redis-data/${port}/appendonly.aof /redis-data/${port}/appendonly.aof.bak
+        fi
       fi
 
       if [ "$port" -lt "$first_standalone" ]; then
@@ -87,9 +89,11 @@ if [ "$1" = 'redis-cluster' ]; then
     fi
 
     for port in $(seq $INITIAL_PORT $max_port); do
-      if [ -e /redis-data/${port}/appendonly.aof.bak ]; then
-        mv /redis-data/${port}/appendonly.aof.bak /redis-data/${port}/appendonly.aof
-        /redis/src/redis-cli -p "${port}" shutdown
+      if [ "$port" -lt "$first_standalone" ]; then
+        if [ -e /redis-data/${port}/appendonly.aof.bak ]; then
+          mv /redis-data/${port}/appendonly.aof.bak /redis-data/${port}/appendonly.aof
+          /redis/src/redis-cli -p "${port}" shutdown
+        fi
       fi
     done
 
