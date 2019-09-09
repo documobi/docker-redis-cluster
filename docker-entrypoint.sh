@@ -22,6 +22,10 @@ if [ "$1" = 'redis-cluster' ]; then
       MASTERS=3
     fi
 
+    if [ -z "$PERSISTENT" ]; then # Defaults to true
+      PERSISTENT="true"
+    fi
+
     if [ -z "$SLAVES_PER_MASTER" ]; then # Default to 1 slave for each master
       SLAVES_PER_MASTER=1
     fi
@@ -44,9 +48,15 @@ if [ "$1" = 'redis-cluster' ]; then
         rm /redis-data/${port}/dump.rdb
       fi
 
-      if [ "$port" -lt "$first_standalone" ]; then
+      if [ "$PERSISTENT" = "true" ]; then
+        if [ "$port" -lt "$first_standalone" ]; then
+          if [ -e /redis-data/${port}/appendonly.aof ]; then
+            mv /redis-data/${port}/appendonly.aof /redis-data/${port}/appendonly.aof.bak
+          fi
+        fi
+      else
         if [ -e /redis-data/${port}/appendonly.aof ]; then
-          mv /redis-data/${port}/appendonly.aof /redis-data/${port}/appendonly.aof.bak
+          rm /redis-data/${port}/appendonly.aof
         fi
       fi
 
@@ -88,14 +98,16 @@ if [ "$1" = 'redis-cluster' ]; then
       done
     fi
 
-    for port in $(seq $INITIAL_PORT $max_port); do
-      if [ "$port" -lt "$first_standalone" ]; then
-        if [ -e /redis-data/${port}/appendonly.aof.bak ]; then
-          mv /redis-data/${port}/appendonly.aof.bak /redis-data/${port}/appendonly.aof
-          /redis/src/redis-cli -p "${port}" shutdown
+    if [ "$PERSISTENT" = "true" ]; then
+      for port in $(seq $INITIAL_PORT $max_port); do
+        if [ "$port" -lt "$first_standalone" ]; then
+          if [ -e /redis-data/${port}/appendonly.aof.bak ]; then
+            mv /redis-data/${port}/appendonly.aof.bak /redis-data/${port}/appendonly.aof
+            /redis/src/redis-cli -p "${port}" shutdown
+          fi
         fi
-      fi
-    done
+      done
+    fi
 
     tail -f /var/log/supervisor/redis*.log
 else
